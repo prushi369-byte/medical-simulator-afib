@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Scenario Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #game {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #score, #timer {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        #text {
+            margin-bottom: 20px;
+            min-height: 120px;
+        }
+        .choice {
+            display: block;
+            padding: 10px 15px;
+            margin: 8px 0;
+            background-color: #007bff;
+            color: #ffffff;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .choice:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+            background-color: #e9f7ef;
+        }
+        #restart {
+            display: inline-block;
+            padding: 10px 15px;
+            margin-top: 10px;
+            background-color: #28a745;
+            color: #ffffff;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #restart:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rapid Response Scenario</h1>
+    <div id="game">
+        <div id="header">
+            <span id="score">Score: 0</span>
+            <span id="timer">Time: 300s</span>
+        </div>
+        <div id="text"></div>
+        <div id="choices"></div>
+        <div id="result"></div>
+    </div>
+    <script>
+    // Define scenario nodes. Each node has text, choices (with text, next node and score delta),
+    // and an optional end flag with explanation text.
+    const nodes = {
+        // Initial presentation of the unstable AF patient
+        start: {
+            text: `You are managing a 67‑year‑old man with end‑stage liver failure and acute kidney injury. He presents with atrial fibrillation with rapid ventricular response (heart rate 160 bpm) and hypotension (blood pressure 90/50 mmHg). He is tachycardic and symptomatic. What do you do first?`,
+            choices: [
+                { text: "Assess hemodynamic stability and underlying causes", next: "assess", delta: 1 },
+                { text: "Order laboratory tests", next: "labs_menu", delta: 0 },
+                { text: "Start intravenous diltiazem or beta‑blocker for rate control", next: "wrong_rate_control", delta: 0 },
+                { text: "Perform synchronized cardioversion now", next: "prepare_cardioversion", delta: 1 }
+            ]
+        },
+        // Assessment reveals instability
+        assess: {
+            text: `On assessment, you note the patient is hypotensive (BP 90/50 mmHg), tachycardic, and shows signs of end‑organ hypoperfusion. This indicates he is hemodynamically unstable due to atrial fibrillation with RVR. What is your next step?`,
+            choices: [
+                { text: "Prepare for synchronized cardioversion", next: "prepare_cardioversion", delta: 1 },
+                { text: "Start amiodarone for rhythm control", next: "wrong_amiodarone", delta: 0 },
+                { text: "Order laboratory tests", next: "labs_menu", delta: 0 }
+            ]
+        },
+        // Preparation for cardioversion
+        prepare_cardioversion: {
+            text: `You prepare for synchronized cardioversion. Do you want to order labs before cardioversion?`,
+            choices: [
+                { text: "Perform synchronized cardioversion (200 J biphasic)", next: "success_cardioversion", delta: 1 },
+                { text: "Order laboratory tests before cardioversion", next: "labs_menu", delta: 0 }
+            ]
+        },
+        // Success outcome
+        success_cardioversion: {
+            end: true,
+            text: `You perform synchronized cardioversion successfully. The rhythm converts to sinus and the patient's blood pressure improves. Continue supportive care and address reversible causes.`,
+            explanation: `Immediate synchronized cardioversion is indicated for hemodynamically unstable atrial fibrillation with rapid ventricular response【94918401998196†L24-L32】. Avoid rate‑control agents (beta‑blockers, nondihydropyridine calcium channel blockers) in unstable patients, as they may worsen hypotension. After cardioversion, identify and correct underlying triggers (e.g., electrolyte disturbances, infection), monitor liver and renal function, and evaluate the need for anticoagulation based on the CHA₂DS₂‑VASc score.`,
+        },
+        // Wrong choice: rate control in an unstable patient
+        wrong_rate_control: {
+            end: true,
+            text: `You administer diltiazem or a beta‑blocker for rate control. The patient's blood pressure drops further and he becomes unresponsive.`,
+            explanation: `Rate‑control medications (beta blockers or nondihydropyridine calcium channel blockers) are recommended for stable atrial fibrillation【94918401998196†L24-L32】. In hemodynamically unstable patients, these agents can exacerbate hypotension and lead to cardiovascular collapse. Immediate synchronized cardioversion is the appropriate intervention.`,
+        },
+        // Wrong choice: amiodarone instead of cardioversion
+        wrong_amiodarone: {
+            end: true,
+            text: `You administer intravenous amiodarone. The heart rate slows slightly, but the patient remains hypotensive and continues to deteriorate.`,
+            explanation: `Amiodarone acts slowly and may not stabilize a patient with severe hypotension. For unstable atrial fibrillation with RVR, synchronized cardioversion is recommended【94918401998196†L24-L32】. After stabilization, amiodarone can be considered for rhythm control.`,
+        },
+        // Menu for ordering laboratory tests
+        labs_menu: {
+            text: `Which laboratory test would you like to order? You can review multiple results before returning to management.`,
+            choices: [
+                { text: "Complete metabolic panel (CMP)", next: "labs_cmp", delta: 0 },
+                { text: "Complete blood count (CBC)", next: "labs_cbc", delta: 0 },
+                { text: "Coagulation studies (INR/PT/aPTT)", next: "labs_coag", delta: 0 },
+                { text: "Serum magnesium", next: "labs_mag", delta: 0 },
+                { text: "Return to management", next: "return_from_labs", delta: 0 }
+            ]
+        },
+        labs_cmp: {
+            text: `CMP results:\nNa 130 mEq/L (low), K 4.9 mEq/L, Cl 95 mEq/L, HCO₃⁻ 18 mEq/L, BUN 45 mg/dL, Creatinine 3.2 mg/dL (acute kidney injury), AST 80 U/L, ALT 70 U/L, total bilirubin 4.2 mg/dL, albumin 2.5 g/dL (liver failure).`,
+            choices: [
+                { text: "Order another lab", next: "labs_menu", delta: 0 },
+                { text: "Return to management", next: "return_from_labs", delta: 0 }
+            ]
+        },
+        labs_cbc: {
+            text: `CBC results:\nWBC 8.5 × 10³/µL, Hemoglobin 11 g/dL, Hematocrit 33%, Platelets 110 × 10³/µL (thrombocytopenia).`,
+            choices: [
+                { text: "Order another lab", next: "labs_menu", delta: 0 },
+                { text: "Return to management", next: "return_from_labs", delta: 0 }
+            ]
+        },
+        labs_coag: {
+            text: `Coagulation studies:\nINR 2.3, PT 20 seconds, aPTT 45 seconds (prolonged).`,
+            choices: [
+                { text: "Order another lab", next: "labs_menu", delta: 0 },
+                { text: "Return to management", next: "return_from_labs", delta: 0 }
+            ]
+        },
+        labs_mag: {
+            text: `Serum magnesium level: 1.2 mg/dL (low).`,
+            choices: [
+                { text: "Order another lab", next: "labs_menu", delta: 0 },
+                { text: "Return to management", next: "return_from_labs", delta: 0 }
+            ]
+        },
+        // Return from labs to management decisions
+        return_from_labs: {
+            text: `You have reviewed the laboratory results. What is your next step?`,
+            choices: [
+                { text: "Assess hemodynamic stability again", next: "assess", delta: 0 },
+                { text: "Prepare for synchronized cardioversion", next: "prepare_cardioversion", delta: 1 },
+                { text: "Start rate‑control medication", next: "wrong_rate_control", delta: 0 }
+            ]
+        },
+    };
+
+    let currentNode = 'start';
+    let score = 0;
+    let timeLeft = 300; // seconds
+    let timerInterval;
+
+    const textElement = document.getElementById('text');
+    const choicesElement = document.getElementById('choices');
+    const scoreElement = document.getElementById('score');
+    const timerElement = document.getElementById('timer');
+    const resultElement = document.getElementById('result');
+
+    function startGame() {
+        currentNode = 'start';
+        score = 0;
+        timeLeft = 300;
+        scoreElement.textContent = `Score: ${score}`;
+        timerElement.textContent = `Time: ${timeLeft}s`;
+        resultElement.style.display = 'none';
+        resultElement.innerHTML = '';
+        loadNode(currentNode);
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+        timeLeft--;
+        timerElement.textContent = `Time: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            endGame('Time has expired. The patient did not survive.');
+        }
+    }
+
+    function loadNode(nodeKey) {
+        const node = nodes[nodeKey];
+        if (!node) return;
+        currentNode = nodeKey;
+        textElement.textContent = node.text;
+        choicesElement.innerHTML = '';
+        if (node.end) {
+            // End node: show explanation and final score
+            clearInterval(timerInterval);
+            endGame();
+            return;
+        }
+        node.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'choice';
+            btn.textContent = choice.text;
+            btn.addEventListener('click', () => {
+                score += choice.delta;
+                scoreElement.textContent = `Score: ${score}`;
+                loadNode(choice.next);
+            });
+            choicesElement.appendChild(btn);
+        });
+    }
+
+    function endGame(message) {
+        // Hide choices and show result
+        choicesElement.innerHTML = '';
+        const node = nodes[currentNode];
+        let resultMsg = '';
+        if (message) {
+            resultMsg += `<p>${message}</p>`;
+        }
+        if (node && node.end) {
+            resultMsg += `<p><strong>Outcome:</strong> ${node.text}</p>`;
+            resultMsg += `<p><strong>Explanation:</strong> ${node.explanation}</p>`;
+        }
+        resultMsg += `<p><strong>Final Score:</strong> ${score}</p>`;
+        resultMsg += `<p><strong>Time remaining:</strong> ${timeLeft}s</p>`;
+        resultMsg += `<a id="restart" href="#">Play again</a>`;
+        resultElement.innerHTML = resultMsg;
+        resultElement.style.display = 'block';
+        const restartBtn = document.getElementById('restart');
+        restartBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            startGame();
+        });
+    }
+
+    // Initialize game on page load
+    startGame();
+    </script>
+</body>
+</html>
