@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Medical Scenario Simulator</title>
+    <title>Rapid Response Simulator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,7 +16,7 @@
             margin-bottom: 20px;
         }
         #game {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             background: #ffffff;
             padding: 20px;
@@ -27,15 +27,23 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
         #score, #timer {
             font-weight: bold;
-            font-size: 16px;
+    font-size: 16px;
         }
-        #text {
-            margin-bottom: 20px;
-            min-height: 120px;
+        #vitals {
+            background-color: #eef5ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        #message {
+            margin-bottom: 15px;
+            min-height: 100px;
         }
         .choice {
             display: block;
@@ -43,10 +51,12 @@
             margin: 8px 0;
             background-color: #007bff;
             color: #ffffff;
+            border: none;
             border-radius: 4px;
-            text-decoration: none;
+            text-align: left;
             cursor: pointer;
             transition: background-color 0.2s;
+            width: 100%;
         }
         .choice:hover {
             background-color: #0056b3;
@@ -55,7 +65,7 @@
             display: none;
             margin-top: 20px;
             padding: 15px;
-            border-left: 4px solid #28a745;
+border-left: 4px solid #28a745;
             background-color: #e9f7ef;
         }
         #restart {
@@ -74,199 +84,296 @@
     </style>
 </head>
 <body>
-    <h1>Rapid Response Scenario</h1>
+    <h1>Rapid Response Simulator</h1>
     <div id="game">
         <div id="header">
             <span id="score">Score: 0</span>
             <span id="timer">Time: 300s</span>
         </div>
-        <div id="text"></div>
-        <div id="choices"></div>
+        <div id="vitals">
+            <strong>Vitals:</strong> HR <span id="hr">160</span> bpm | BP <span id="bp">90/50</span> mmHg | SpO2 <span id="spo2">92</span>%<br>
+            <strong>Status:</strong> <span id="status">Agitated</sp
+an>
+        </div>
+        <div id="message"></div>
+        <div id="actions"></div>
         <div id="result"></div>
     </div>
     <script>
-    // Define scenario nodes. Each node has text, choices (with text, next node and score delta),
-    // and an optional end flag with explanation text.
-    const nodes = {
-        // Initial presentation of the unstable AF patient
-        start: {
-            text: `You are managing a 67‑year‑old man with end‑stage liver failure and acute kidney injury. He presents with atrial fibrillation with rapid ventricular response (heart rate 160 bpm) and hypotension (blood pressure 90/50 mmHg). He is tachycardic and symptomatic. What do you do first?`,
-            choices: [
-                { text: "Assess hemodynamic stability and underlying causes", next: "assess", delta: 1 },
-                { text: "Order laboratory tests", next: "labs_menu", delta: 0 },
-                { text: "Start intravenous diltiazem or beta‑blocker for rate control", next: "wrong_rate_control", delta: 0 },
-                { text: "Perform synchronized cardioversion now", next: "prepare_cardioversion", delta: 1 }
-            ]
-        },
-        // Assessment reveals instability
-        assess: {
-            text: `On assessment, you note the patient is hypotensive (BP 90/50 mmHg), tachycardic, and shows signs of end‑organ hypoperfusion. This indicates he is hemodynamically unstable due to atrial fibrillation with RVR. What is your next step?`,
-            choices: [
-                { text: "Prepare for synchronized cardioversion", next: "prepare_cardioversion", delta: 1 },
-                { text: "Start amiodarone for rhythm control", next: "wrong_amiodarone", delta: 0 },
-                { text: "Order laboratory tests", next: "labs_menu", delta: 0 }
-            ]
-        },
-        // Preparation for cardioversion
-        prepare_cardioversion: {
-            text: `You prepare for synchronized cardioversion. Do you want to order labs before cardioversion?`,
-            choices: [
-                { text: "Perform synchronized cardioversion (200 J biphasic)", next: "success_cardioversion", delta: 1 },
-                { text: "Order laboratory tests before cardioversion", next: "labs_menu", delta: 0 }
-            ]
-        },
-        // Success outcome
-        success_cardioversion: {
-            end: true,
-            text: `You perform synchronized cardioversion successfully. The rhythm converts to sinus and the patient's blood pressure improves. Continue supportive care and address reversible causes.`,
-            explanation: `Immediate synchronized cardioversion is indicated for hemodynamically unstable atrial fibrillation with rapid ventricular response【94918401998196†L24-L32】. Avoid rate‑control agents (beta‑blockers, nondihydropyridine calcium channel blockers) in unstable patients, as they may worsen hypotension. After cardioversion, identify and correct underlying triggers (e.g., electrolyte disturbances, infection), monitor liver and renal function, and evaluate the need for anticoagulation based on the CHA₂DS₂‑VASc score.`,
-        },
-        // Wrong choice: rate control in an unstable patient
-        wrong_rate_control: {
-            end: true,
-            text: `You administer diltiazem or a beta‑blocker for rate control. The patient's blood pressure drops further and he becomes unresponsive.`,
-            explanation: `Rate‑control medications (beta blockers or nondihydropyridine calcium channel blockers) are recommended for stable atrial fibrillation【94918401998196†L24-L32】. In hemodynamically unstable patients, these agents can exacerbate hypotension and lead to cardiovascular collapse. Immediate synchronized cardioversion is the appropriate intervention.`,
-        },
-        // Wrong choice: amiodarone instead of cardioversion
-        wrong_amiodarone: {
-            end: true,
-            text: `You administer intravenous amiodarone. The heart rate slows slightly, but the patient remains hypotensive and continues to deteriorate.`,
-            explanation: `Amiodarone acts slowly and may not stabilize a patient with severe hypotension. For unstable atrial fibrillation with RVR, synchronized cardioversion is recommended【94918401998196†L24-L32】. After stabilization, amiodarone can be considered for rhythm control.`,
-        },
-        // Menu for ordering laboratory tests
-        labs_menu: {
-            text: `Which laboratory test would you like to order? You can review multiple results before returning to management.`,
-            choices: [
-                { text: "Complete metabolic panel (CMP)", next: "labs_cmp", delta: 0 },
-                { text: "Complete blood count (CBC)", next: "labs_cbc", delta: 0 },
-                { text: "Coagulation studies (INR/PT/aPTT)", next: "labs_coag", delta: 0 },
-                { text: "Serum magnesium", next: "labs_mag", delta: 0 },
-                { text: "Return to management", next: "return_from_labs", delta: 0 }
-            ]
-        },
-        labs_cmp: {
-            text: `CMP results:\nNa 130 mEq/L (low), K 4.9 mEq/L, Cl 95 mEq/L, HCO₃⁻ 18 mEq/L, BUN 45 mg/dL, Creatinine 3.2 mg/dL (acute kidney injury), AST 80 U/L, ALT 70 U/L, total bilirubin 4.2 mg/dL, albumin 2.5 g/dL (liver failure).`,
-            choices: [
-                { text: "Order another lab", next: "labs_menu", delta: 0 },
-                { text: "Return to management", next: "return_from_labs", delta: 0 }
-            ]
-        },
-        labs_cbc: {
-            text: `CBC results:\nWBC 8.5 × 10³/µL, Hemoglobin 11 g/dL, Hematocrit 33%, Platelets 110 × 10³/µL (thrombocytopenia).`,
-            choices: [
-                { text: "Order another lab", next: "labs_menu", delta: 0 },
-                { text: "Return to management", next: "return_from_labs", delta: 0 }
-            ]
-        },
-        labs_coag: {
-            text: `Coagulation studies:\nINR 2.3, PT 20 seconds, aPTT 45 seconds (prolonged).`,
-            choices: [
-                { text: "Order another lab", next: "labs_menu", delta: 0 },
-                { text: "Return to management", next: "return_from_labs", delta: 0 }
-            ]
-        },
-        labs_mag: {
-            text: `Serum magnesium level: 1.2 mg/dL (low).`,
-            choices: [
-                { text: "Order another lab", next: "labs_menu", delta: 0 },
-                { text: "Return to management", next: "return_from_labs", delta: 0 }
-            ]
-        },
-        // Return from labs to management decisions
-        return_from_labs: {
-            text: `You have reviewed the laboratory results. What is your next step?`,
-            choices: [
-                { text: "Assess hemodynamic stability again", next: "assess", delta: 0 },
-                { text: "Prepare for synchronized cardioversion", next: "prepare_cardioversion", delta: 1 },
-                { text: "Start rate‑control medication", next: "wrong_rate_control", delta: 0 }
-            ]
-        },
+    // Game state and vitals
+    const initialState = {
+        hr: 160,
+        bpSys: 90,
+        bpDia: 50,
+        spo2: 92,
+        status: 'Agitated',
+        sedationGiven: false,
+        phenylephrineDoses: 0,
+        amiodaroneGiven: false,
+        fluidsGiven: false,
+        cardioverted: false
     };
-
-    let currentNode = 'start';
+    let state;
     let score = 0;
-    let timeLeft = 300; // seconds
+    let timeLeft = 300;
     let timerInterval;
+    let vitalsInterval;
 
-    const textElement = document.getElementById('text');
-    const choicesElement = document.getElementById('choices');
-    const scoreElement = document.getElementById('score');
-    const timerElement = document.getElementById('timer');
-    const resultElement = document.getElementById('result');
-
+    // Initialize the game
     function startGame() {
-        currentNode = 'start';
+        state = Object.assign({}, initialState);
         score = 0;
         timeLeft = 300;
-        scoreElement.textContent = `Score: ${score}`;
-        timerElement.textContent = `Time: ${timeLeft}s`;
-        resultElement.style.display = 'none';
-        resultElement.innerHTML = '';
-        loadNode(currentNode);
+        document.getElementById('score').textContent = 'Score: ' + score;
+        document.getElementById('timer').textContent = 'Time: ' + timeLeft + 's';
+        document.getElementById('resul
+t').style.display = 'none';
+        updateVitalsDisplay();
+        showInitial();
         clearInterval(timerInterval);
+        clearInterval(vitalsInterval);
         timerInterval = setInterval(updateTimer, 1000);
+        vitalsInterval = setInterval(simulateDeterioration, 10000);
     }
 
+    // Update timer each second
     function updateTimer() {
         timeLeft--;
-        timerElement.textContent = `Time: ${timeLeft}s`;
+        document.getElementById('timer').textContent = 'Time: ' + timeLeft + 's';
         if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            endGame('Time has expired. The patient did not survive.');
+            endGame(false, 'Time expired. The patient did not survive.', 'Delay in definitive management led to decompensation.');
         }
     }
 
-    function loadNode(nodeKey) {
-        const node = nodes[nodeKey];
-        if (!node) return;
-        currentNode = nodeKey;
-        textElement.textContent = node.text;
-        choicesElement.innerHTML = '';
-        if (node.end) {
-            // End node: show explanation and final score
-            clearInterval(timerInterval);
-            endGame();
+    // Display current vitals
+    function updateVitalsDisplay() {
+        document.getElementById('hr').textContent = state.hr;
+        document.getElementById('bp').textContent = state.bpSys + '/' + state.bpDia;
+        document.getElementById('spo2').textContent = st
+ate.spo2;
+        document.getElementById('status').textContent = state.status;
+    }
+
+    // Gradual deterioration of vitals when unstable
+    function simulateDeterioration() {
+        if (state.cardioverted) return;
+        // heart rate increases
+        if (state.hr < 200) state.hr += Math.floor(Math.random() * 3) + 1;
+        // blood pressure drops
+        if (state.bpSys > 70) state.bpSys -= Math.floor(Math.random() * 3) + 1;
+        if (state.bpDia > 40) state.bpDia -= Math.floor(Math.random() * 2) + 1;
+        // oxygen saturation declines
+        if (state.spo2 > 85) state.spo2 -= 1;
+        // check for collapse
+        if (state.bpSys < 80 || state.spo2 < 85) {
+            endGame(false, 'The patient has deteriorated into shock and cardiac arrest.', 'Failure to provide timely resuscitation led to cardiovascular collapse.');
             return;
         }
-        node.choices.forEach(choice => {
-            const btn = document.createElement('button');
-            btn.className = 'choice';
-            btn.textContent = choice.text;
-            btn.addEventListener('click', () => {
-                score += choice.delta;
-                scoreElement.textContent = `Score: ${score}`;
-                loadNode(choice.next);
-            });
-            choicesElement.appendChild(btn);
-        });
+        updateVitalsD
+isplay();
     }
 
-    function endGame(message) {
-        // Hide choices and show result
-        choicesElement.innerHTML = '';
-        const node = nodes[currentNode];
-        let resultMsg = '';
-        if (message) {
-            resultMsg += `<p>${message}</p>`;
+    // Show initial narrative and actions
+    function showInitial() {
+        const message = document.getElementById('message');
+        message.innerHTML = 'A 67‑year‑old man with end‑stage liver failure and acute kidney injury presents with atrial fibrillation with rapid ventricular response (HR 160 bpm) and hypotension (BP 90/50 mmHg). He is tachycardic and symptomatic. Manage the patient, order diagnostic tests, and administer treatments to stabilize him. The ultimate goal is successful synchronized cardioversion.';
+        const actions = document.getElementById('actions');
+        actions.innerHTML = '';
+        addActionButton('Order laboratory tests', showLabsMenu);
+        addActionButton('Administer phenylephrine push (50–200 mcg)', givePhenylephrine);
+        addActionButton('Administer etomidate sedation (0.1–0.2 mg/kg)', giveSedation);
+        addActionBut
+ton('Administer amiodarone 150 mg IV', giveAmiodarone);
+        addActionButton('Administer 500 mL IV fluids', giveFluids);
+        addActionButton('Perform synchronized cardioversion (200 J)', performCardioversion);
+    }
+
+    // Helper to add buttons
+    function addActionButton(text, handler) {
+        const btn = document.createElement('button');
+        btn.className = 'choice';
+        btn.textContent = text;
+        btn.onclick = handler;
+        document.getElementById('actions').appendChild(btn);
+    }
+
+    // Laboratories menu
+    function showLabsMenu() {
+        const message = document.getElementById('message');
+        message.innerHTML = 'Select a laboratory test to order:';
+        const actions = document.getElementById('actions');
+        actions.innerHTML = '';
+        addActionButton('Complete metabolic panel (CMP)', function() { showLabResult('CMP'); });
+        addA
+ctionButton('Complete blood count (CBC)', function() { showLabResult('CBC'); });
+        addActionButton('Coagulation studies (INR/PT/aPTT)', function() { showLabResult('Coag'); });
+        addActionButton('Serum magnesium', function() { showLabResult('Mg'); });
+        addActionButton('Serum troponin', function() { showLabResult('Troponin'); });
+        addActionButton('Arterial blood gas (ABG)', function() { showLabResult('ABG'); });
+        addActionButton('Return to management', showInitial);
+    }
+
+    // Display results of a specific test
+    function showLabResult(test) {
+        const actions = document.getElementById('actions');
+        actions.innerHTML = '';
+        let result = '';
+        switch (test) {
+            case 'CMP':
+                result = 'CMP results:<br>Na 130 mEq/L (low); K 4.9 mEq/L; Cl 95 mEq/L; HCO₃⁻ 18 mEq/L; BUN 45 mg/dL; Creatinine 3.2 mg/dL (acute kidney injury); AST 80 U/L; ALT 70 U/L; total bilirubin 4.2 mg/dL; albumin 2.5 g/dL (liver failure).';
+                break;
+            case 'CBC':
+                result = 'CBC results:<br>WBC 8.5 × 10³/µL; Hemoglobin 11 g/dL; Hematocrit 33%; Platelets 110 × 10³/µL (thrombocytopenia).';
+                break;
+            case 'Coag':
+                result = 'Coagulation studies:<br>INR 2.3; PT 20 seconds; aPTT 45 seconds (prolonged).';
+                break;
+            case 'Mg':
+                result = 'Serum magnesium level: 1.2 mg/dL (low).';
+                break;
+            case 'Troponin':
+                result = 'Serum troponin: 0.02 ng/mL (normal), suggesting no acute myocardial infarction.';
+                break;
+            case 'ABG':
+                result = 'Arterial blood gas: pH 7.30; pCO₂ 35 mmHg; pO₂ 60 mmHg; HCO₃⁻ 18 mEq/L; lactate 3.5 mmol/L (elevated), indicating metabolic acidosis and hypoxia.';
+                break;
         }
-        if (node && node.end) {
-            resultMsg += `<p><strong>Outcome:</strong> ${node.text}</p>`;
-            resultMsg += `<p><strong>Explanation:</strong> ${node.explanation}</p>`;
+        const message = document.getElementById('message');
+        message.innerHTML = result;
+        addActionButton('Order another lab', showLabsMenu);
+        addActionButton('Return to management', showInitial);
+    }
+
+    // Administer phenylephrine push
+    function givePhenylephrine() {
+        if (state.cardioverted) return;
+        state.phenylephrineDoses++;
+        // Increase blood pressure
+        state.bpSys += 20;
+        state.bpDia += 10;
+        // Reflex bradycardia
+        state.hr -= 5;
+        if (state.hr < 80) state.hr = 80;
+        updateVitalsDisplay();
+        score += 1;
+        document.getElementById('score').textContent = 'Score: ' + score;
+        const message = document.getElementById('message');
+        message.innerHTML = 'You administer phenylephrine 100 mcg (within 50–200 mcg range). Blood pressure improves temporarily, but the arrhythmia persists. Phenylephrine is a pure α₁‑agonist administered in doses of 50–200 mcg every 2–5 minutes, with onset of action around 1 minute and duration of about 15 minutes【625478307504753†L255-L260】.';
+    }
+
+    // Administer etomidate sedation
+    function giveSedation() {
+        if (state.cardioverted) return;
+        if (state.sedationGiven) {
+            document.getElementById('message').innerHTML = 'Sedation has already been administered.';
+            return;
         }
-        resultMsg += `<p><strong>Final Score:</strong> ${score}</p>`;
-        resultMsg += `<p><strong>Time remaining:</strong> ${timeLeft}s</p>`;
-        resultMsg += `<a id="restart" href="#">Play again</a>`;
-        resultElement.innerHTML = resultMsg;
-        resultElement.style.display = 'block';
-        const restartBtn = document.getElementById('restart');
-        restartBtn.addEventListener('click', (e) => {
+        state.sedationGiven = true;
+        score += 1;
+        document.getElementById('score').textContent = 'Score: ' + score;
+        const message = document.getElementById('message');
+        message.innerHTML = 'You administer etomidate 0.1 mg/kg for procedural sedation. Etomidate provides deep sedation with minimal effect on blood pressure or heart rate【859073297557175†L109-L130】. The patient is sedated and ready for cardioversion.';
+    }
+
+    // Administer amiodarone
+    function giveAmiodarone() {
+        if (state.cardioverted) return;
+        if (state.amiodaroneGiven) {
+            document.getElementById('message').innerHTML = 'Amiodarone is already running.';
+            return;
+        }
+        state.amiodaroneGiven = true;
+        // Reduce heart rate slightly and drop blood pressure
+        state.hr -= 10;
+        state.bpSys -= 5;
+        state.bpDia -= 3;
+        updateVitalsDisplay();
+        const message = document.getElementById('message');
+        message.innerHTML = 'You administer amiodarone 150 mg IV over 10 minutes followed by an infusion at 1 mg/min【714019201285831†L90-L103】. This may slow the ventricular rate but has limited immediate effect on unstable atrial fibrillation and may worsen hypotension. Expert consultation is recommended for use of amiodarone in tachyarrhythmias.';
+    }
+
+    // Administer fluids
+    function giveFluids() {
+        if (state.cardioverted) return;
+        if (state.fluidsGiven) {
+            document.getElementById('message').innerHTML = 'An initial fluid bolus has already been given.';
+            return;
+        }
+        state.fluidsGiven = true;
+        state.bpSys += 10;
+        state.bpDia += 5;
+        // Slight decrease in oxygen saturation due to fluid overload risk
+        state.spo2 -= 1;
+        updateVitalsDisplay();
+        const message = document.getElementById('message');
+        message.innerHTML = 'You administer 500 mL of isotonic crystalloid. Blood pressure improves modestly, but the underlying arrhythmia persists. In patients with cirrhosis and acute kidney injury, fluid responsiveness may be limited.';
+    }
+
+    // Perform synchronized 
+cardioversion
+    function performCardioversion() {
+        if (state.cardioverted) {
+            document.getElementById('message').innerHTML = 'Cardioversion already completed successfully.';
+            return;
+        }
+        // ensure not too hypotensive
+        if (state.bpSys < 80) {
+            endGame(false, 'Attempted cardioversion failed due to profound hypotension.', 'Cardioversion cannot be performed effectively in profound shock. Support blood pressure before attempting electrical therapy.');
+            return;
+        }
+        state.cardioverted = true;
+        state.hr = 80;
+        state.bpSys = 110;
+        state.bpDia = 70;
+        state.spo2 = 98;
+        state.status = 'Stable';
+        updateVitalsDisplay();
+        score += 2;
+        document.getElementById('score').textContent = 'Score: ' + score;
+        const message = document.getElementById('message');
+  
+      message.innerHTML = 'You perform synchronized cardioversion at 200 J biphasic. The rhythm converts to sinus. The patient’s blood pressure improves and he becomes stable. Continue supportive care and address reversible causes. Immediate synchronized cardioversion is the recommended treatment for hemodynamically unstable atrial fibrillation【613177164401872†L27-L33】.';
+        // After a short delay, show final result
+        setTimeout(function() {
+            endGame(true, '', '');
+        }, 8000);
+    }
+
+    // Finish game with success or failure
+    function endGame(success, messageText, explanation) {
+        clearInterval(timerInterval);
+        clearInterval(vitalsInterval);
+        // Hide action buttons
+        document.getElementById('actions').innerHTML = '';
+        const result = document.getElementById('result');
+        let html = '';
+        if (messageText) {
+       
+     html += '<p>' + messageText + '</p>';
+        }
+        if (success) {
+            html += '<p><strong>Outcome:</strong> The patient survived and is now stable.</p>';
+        } else {
+            html += '<p><strong>Outcome:</strong> The patient did not survive.</p>';
+        }
+        if (explanation) {
+            html += '<p><strong>Explanation:</strong> ' + explanation + '</p>';
+        }
+        html += '<p><strong>Final Score:</strong> ' + score + '</p>';
+        html += '<p><strong>Time remaining:</strong> ' + timeLeft + 's</p>';
+        html += '<a id="restart" href="#">Play again</a>';
+        result.innerHTML = html;
+        result.style.display = 'block';
+        document.getElementById('restart').onclick = function(e) {
             e.preventDefault();
+            result.style.display = 'none';
             startGame();
-        });
+        };
     }
 
-    // Initialize game on page load
-    startGame();
+    // Start the game when the page
+ loads
+    window.onload = startGame;
     </script>
 </body>
-</html>
+</ht<ml>
